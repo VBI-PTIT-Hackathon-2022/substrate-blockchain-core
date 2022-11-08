@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Encode;
-use frame_support::{dispatch::{DispatchError, DispatchResult, result::Result}, ensure, log, traits::{Get, Randomness}};
+use frame_support::{dispatch::{DispatchError, DispatchResult, result::Result}, ensure, traits::{Get, Randomness}};
 use frame_support::{pallet_prelude::{StorageMap, StorageValue}};
 use frame_system::ensure_signed;
 pub use sp_std::{convert::Into, vec::Vec};
@@ -133,7 +133,7 @@ pub mod pallet {
 				Self::is_approve_for_all(account).unwrap(),
 				Error::<T>::NotOwnerNorApproved);
 
-			<Self as NonFungibleToken<_>>::transfer(from.clone(), to.clone(), token_id.clone())?;
+			<Self as NonFungibleToken<_>>::transfer_ownership(from.clone(), to.clone(), token_id.clone())?;
 			Self::deposit_event(Event::Transfer(from, to, token_id));
 			Ok(())
 		}
@@ -224,7 +224,7 @@ impl<T: Config> NonFungibleToken<T::AccountId> for Pallet<T> {
 	}
 
 	fn transfer_custodian(from: T::AccountId, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
-		ensure!(CustodianOf::<T>::get(token_id.clone()) == from,Error::<T>::NotCustodian);
+		ensure!(Self::custodian_of(token_id.clone()).unwrap() == from || Self::owner_of(token_id.clone()).unwrap() == from ,Error::<T>::NotCustodian);
 		if to == Self::owner_of_token(token_id.clone()) {
 			CustodianOf::<T>::remove(token_id.clone());
 		} else {

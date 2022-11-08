@@ -4,7 +4,7 @@
   use frame_system::{ensure_signed, pallet_prelude::*};
   use sp_core::sr25519;
   use scale_info::prelude::{string::String};
-  use sp_runtime::{traits::{IdentifyAccount, Verify}, AnySignature,AccountId32,SaturatedConversion};
+  use sp_runtime::{traits::{IdentifyAccount, Verify}, AnySignature,SaturatedConversion};
   pub use sp_std::{convert::Into,str};
   pub use sp_std::vec::Vec;
   pub use sp_std::vec;
@@ -109,7 +109,7 @@ pub mod pallet {
 					let lender: T::AccountId = convert_bytes_to_accountid(order.lender);
 					let borrower:T::AccountId = convert_bytes_to_accountid(order.borrower);
 					// transfer asset back to lender
-					T::TokenNFT::transfer_custodian(borrower.clone(), lender.clone(), order.token.clone());
+					T::TokenNFT::transfer_custodian(borrower.clone(), lender.clone(), order.token.clone()).expect("Cannot transfer custodian");
 					RentalInfo::<T>::remove(hash_id.clone());
 					Borrowers::<T>::mutate(borrower.clone(), |orders| {
 						orders.retain(|x| *x != hash_id);
@@ -201,7 +201,7 @@ pub mod pallet {
 			ensure!(caller == T::TokenNFT::owner_of_token(order.token.clone()),Error::<T>::NotOwner);
 
 			// transfer to the lender
-			T::TokenNFT::transfer_custodian(borrower, lender, order.token);
+			T::TokenNFT::transfer_custodian(borrower, lender, order.token).expect("Cannot transfer custodian");
 			Ok(())
 		}
 	}
@@ -274,7 +274,7 @@ impl<T: Config> Pallet<T> {
 			} else if k == "paid_type".as_bytes().to_vec(){
 				let value = data.1.to_number().unwrap().integer;
 				ensure!(value <= 2, Error::<T>::TimeOver);
-				order.paid_type = value;
+				order.paid_type = value.saturated_into();
 			}
 		}
 		Ok(order)
