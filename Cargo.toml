@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "node",
+	"pallets/nft_currency",
+	"pallets/renting",
+    "runtime",
+]
+[profile.release]
+panic = "unwind"

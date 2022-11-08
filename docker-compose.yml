@@ -1,0 +1,17 @@
+version: "3.2"
+
+services:
+  dev:
+    container_name: node-nft_currency
+    image: paritytech/ci-linux:production
+    working_dir: /var/www/node-nft_currency
+    ports:
+      - "9944:9944"
+    environment:
+      - CARGO_HOME=/var/www/node-nft_currency/.cargo
+    volumes:
+      - .:/var/www/node-nft_currency
+      - type: bind
+        source: ./.local
+        target: /root/.local
+    command: bash -c "cargo build --release && ./target/release/node-nft_currency --dev --ws-external"
