@@ -16,9 +16,21 @@ use convert::*;
 pub use order::Order;
 pub use pallet::*;
 use pallet_nft_currency::NonFungibleToken;
+use crate::pallet::log::log;
 
 mod order;
 mod convert;
+
+/// An index to a block.
+pub type BlockNumber = u32;
+
+// Time is measured by number of blocks.
+pub const MILLISECS_PER_BLOCK: u64 = 6000;
+pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
+pub const HOURS: BlockNumber = MINUTES * 60;
+pub const DAYS: BlockNumber = HOURS * 24;
+pub const WEEKS: BlockNumber = DAYS * 7;
+pub const MONTHS: BlockNumber = WEEKS * 4;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -76,7 +88,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn due_block)]
 	// Record the block stop the rental
-	pub(super) type RentalPayment<T: Config> =
+	pub(super) type Repayment<T: Config> =
 	StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<Vec<u8>>, ValueQuery>;
 
 	// Pallets use events to inform users when important changes are made.
@@ -106,6 +118,7 @@ pub mod pallet {
 		AlreadyCanceled,
 		NotOwnerOfOrder,
 		NotQualified,
+		TimeNotLongEnough,
 	}
 
 	#[pallet::hooks]
@@ -220,7 +233,6 @@ impl<T: Config> Pallet<T> {
 	fn verify_signature(data: Vec<u8>, signature: Vec<u8>, who: &T::AccountId) -> Result<(), DispatchError> {
 		// sr25519 always expects a 64 byte signature.
 		let signature: AnySignature = sr25519::Signature::from_slice(signature.as_ref())
-			.ok_or(Error::<T>::SignatureVerifyError1)?
 			.into();
 
 		// In Polkadot, the AccountId is always the same as the 32 byte public key.
@@ -230,7 +242,7 @@ impl<T: Config> Pallet<T> {
 		// Check if everything is good or not.
 		match signature.verify(data.as_slice(), &public_key) {
 			true => Ok(()),
-			false => Err(Error::<T>::SignatureVerifyError2)?,
+			false => Err(Error::<T>::SignatureVerifyError1)?,
 		}
 	}
 
@@ -281,7 +293,7 @@ impl<T: Config> Pallet<T> {
 				order.due_date = value;
 			} else if k == "paid_type".as_bytes().to_vec() {
 				let value = data.1.to_number().unwrap().integer;
-				ensure!(value <= 2, Error::<T>::TimeOver);
+				ensure!(value>=0 && value <= 2, Error::<T>::TimeOver);
 				order.paid_type = value.saturated_into();
 			}
 		}
@@ -293,7 +305,10 @@ impl<T: Config> Pallet<T> {
 		ensure!(order_left.lender == order_right.lender, Error::<T>::NotMatchLender);
 		ensure!(order_left.due_date >= order_right.due_date, Error::<T>::TimeOver);
 		ensure!(order_left.fee <= order_right.fee, Error::<T>::NotEnoughFee);
-		let total_renting_days = Self::calculate_day_renting(order_right.due_date);
+		let total_blocks = Self::calculate_day_renting(order_right.due_date)/DAYS;
+		log::info!("total blocks: {}", total_blocks);
+		ensure!(total_blocks > DAYS, Error::<T>::NotEnoughBlocks);
+
 		let mut total_fee = 0;
 		if order_left.paid_type == 0 {
 			total_fee = order_right.fee * total_renting_days;
@@ -315,9 +330,8 @@ impl<T: Config> Pallet<T> {
 
 	fn get_due_block(due_date: u64) -> T::BlockNumber {
 		let current_block_number = frame_system::Pallet::<T>::current_block_number();
-		let one_day: u32 = 86400 / 6; // 6 sec finalize a block
-		let total_renting_days: u32 = Self::calculate_day_renting(due_date) as u32;
-		let target_block = current_block_number + (total_renting_days / one_day).into();
+		let total_renting_days = Self::calculate_day_renting(due_date);
+		let target_block = current_block_number + (total_renting_days / DAYS).into();
 		target_block
 	}
 }
