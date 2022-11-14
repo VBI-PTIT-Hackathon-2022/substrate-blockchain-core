@@ -296,7 +296,7 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-nft_currency in the runtime.
-		NftCurrencyPallet: pallet_nft_currency,
+		NftCurrency: pallet_nft_currency,
 		Renting: pallet_renting,
 	}
 );

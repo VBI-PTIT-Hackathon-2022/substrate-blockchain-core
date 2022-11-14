@@ -320,6 +320,10 @@ impl<T: Config> Pallet<T> {
 		let target_block = current_block_number + (total_renting_days / one_day).into();
 		target_block
 	}
+
+	fn get_repayment_block(order_type: u8, due_date:u64) {
+
+	}
 }
 
 
