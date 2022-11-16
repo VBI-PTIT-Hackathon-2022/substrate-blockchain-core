@@ -273,7 +273,7 @@ impl pallet_nft_currency::Config for Runtime {
 impl pallet_renting::Config for Runtime {
 	type Event = Event;
 	type Randomness = RandomnessCollectiveFlip;
-	type TokenNFT = NftCurrencyPallet;
+	type TokenNFT = NftCurrency;
 	type Signature = sp_core::ecdsa::Signature;
 	type PublicKey = sp_core::ecdsa::Public;
 	type Timestamp = pallet_timestamp::Pallet<Runtime>;
