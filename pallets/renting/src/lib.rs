@@ -16,8 +16,6 @@ use convert::*;
 pub use order::Order;
 pub use pallet::*;
 use pallet_nft_currency::NonFungibleToken;
-use crate::pallet::log::log;
-
 mod order;
 mod convert;
 
@@ -86,7 +84,7 @@ pub mod pallet {
 	StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<Vec<u8>>, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn due_block)]
+	#[pallet::getter(fn repayment)]
 	// Record the block stop the rental
 	pub(super) type Repayment<T: Config> =
 	StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<Vec<u8>>, ValueQuery>;
@@ -233,6 +231,7 @@ impl<T: Config> Pallet<T> {
 	fn verify_signature(data: Vec<u8>, signature: Vec<u8>, who: &T::AccountId) -> Result<(), DispatchError> {
 		// sr25519 always expects a 64 byte signature.
 		let signature: AnySignature = sr25519::Signature::from_slice(signature.as_ref())
+			.ok_or(Error::<T>::SignatureVerifyError1)?
 			.into();
 
 		// In Polkadot, the AccountId is always the same as the 32 byte public key.
@@ -242,7 +241,7 @@ impl<T: Config> Pallet<T> {
 		// Check if everything is good or not.
 		match signature.verify(data.as_slice(), &public_key) {
 			true => Ok(()),
-			false => Err(Error::<T>::SignatureVerifyError1)?,
+			false => Err(Error::<T>::SignatureVerifyError2)?,
 		}
 	}
 
