@@ -150,6 +150,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(who == Self::owner_of(token_id.clone()).unwrap(),Error::<T>::NotOwner);
 			<Self as NonFungibleToken<_>>::set_token_uri(token_id, token_uri)?;
+			Self::deposit_event(Event::SetURI(token_id,token_uri));
 			Ok(())
 		}
 	}
