@@ -78,6 +78,7 @@ pub mod pallet {
 		/// parameters. [something, who]
 		Mint(T::AccountId, Vec<u8>),
 		Transfer(T::AccountId, T::AccountId, Vec<u8>),
+		SetURI(Vec<u8>,Vec<u8>),
 		Approve(T::AccountId, T::AccountId, Vec<u8>),
 		ApproveForAll(T::AccountId, T::AccountId),
 	}
@@ -149,7 +150,8 @@ pub mod pallet {
 		pub fn set_token_uri(origin: OriginFor<T>, token_id: Vec<u8>, token_uri: Vec<u8>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(who == Self::owner_of(token_id.clone()).unwrap(),Error::<T>::NotOwner);
-			<Self as NonFungibleToken<_>>::set_token_uri(token_id, token_uri)?;
+			<Self as NonFungibleToken<_>>::set_token_uri(token_id.clone(), token_uri.clone())?;
+			Self::deposit_event(Event::SetURI(token_id,token_uri));
 			Ok(())
 		}
 	}
