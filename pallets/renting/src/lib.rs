@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{dispatch::{DispatchError, DispatchResult, result::Result}, ensure, log, pallet_prelude::*, traits::{Currency, Randomness}};
+use frame_support::{dispatch::{DispatchError, DispatchResult, result::Result}, ensure,log, pallet_prelude::*, traits::{Currency, Randomness}};
 use frame_support::traits::{ExistenceRequirement, UnixTime};
 use frame_system::{ensure_signed, pallet_prelude::*};
 use lite_json::json_parser::parse_json;
@@ -20,15 +20,14 @@ mod order;
 mod convert;
 
 /// An index to a block.
-pub type BlockNumber = u32;
 
 // Time is measured by number of blocks.
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
-pub const WEEKS: BlockNumber = DAYS * 7;
-pub const MONTHS: BlockNumber = WEEKS * 4;
+pub const MILLISECS_PER_BLOCK: u32 = 6000;
+pub const MINUTES : u32 = 60000 / (MILLISECS_PER_BLOCK);
+pub const HOURS: u32 = MINUTES * 60;
+pub const DAYS: u32 = HOURS * 24;
+pub const WEEKS: u32 = DAYS * 7;
+pub const MONTHS: u32 = WEEKS * 4;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -122,6 +121,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(_n: BlockNumberFor<T>) {
+			log::info!("on_finalize {:?}", _n);
 			if DueBlock::<T>::contains_key(_n) {
 				for hash_id in Self::due_block(_n).into_iter() {
 					let order = Self::rental_info(hash_id.clone()).unwrap();
@@ -178,7 +178,7 @@ pub mod pallet {
 			});
 
 			let due_block = Self::get_due_block(fulfilled_order.due_date);
-
+			log::info!("due_block: {:?}", due_block);
 			DueBlock::<T>::mutate(due_block.clone(), |orders| {
 				orders.push(hash_order.clone());
 			});
@@ -304,33 +304,27 @@ impl<T: Config> Pallet<T> {
 		ensure!(order_left.lender == order_right.lender, Error::<T>::NotMatchLender);
 		ensure!(order_left.due_date >= order_right.due_date, Error::<T>::TimeOver);
 		ensure!(order_left.fee <= order_right.fee, Error::<T>::NotEnoughFee);
-		let total_blocks = Self::calculate_day_renting(order_right.due_date)/DAYS;
-		log::info!("total blocks: {}", total_blocks);
-		ensure!(total_blocks > DAYS, Error::<T>::NotEnoughBlocks);
+		let total_renting_days = Self::calculate_day_renting(order_right.due_date);
+		log::info!("total blocks: {}", total_renting_days);
+		ensure!(total_renting_days > 1, Error::<T>::TimeNotLongEnough);
 
-		let mut total_fee = 0;
-		if order_left.paid_type == 0 {
-			total_fee = order_right.fee * total_renting_days;
-		} else if order_left.paid_type == 1 {
-			total_fee = order_left.fee * (total_renting_days / 7);
-		} else if order_left.paid_type == 2 {
-			total_fee = order_left.fee * (total_renting_days / 30);
-		}
-		order_right.fee = total_fee;
+		order_right.fee = order_right.fee * total_renting_days;
 
 		Ok(order_right)
 	}
 
 	fn transfer_custodian(lender: &T::AccountId, borrower: &T::AccountId, order: Order) {
 		if order.paid_type == 0 {}
-		let _ = T::TokenNFT::transfer_custodian(lender.clone(), borrower.clone(), order.token);
-		let _ = T::Currency::transfer(&borrower, &lender, order.fee.saturated_into(), ExistenceRequirement::KeepAlive);
+		let _ = T::TokenNFT::transfer_custodian(lender.clone(), borrower.clone(), order.token.clone());
+		let _ = T::Currency::transfer(&borrower, &T::TokenNFT::owner_of_token(order.token), order.fee.saturated_into(), ExistenceRequirement::KeepAlive);
 	}
 
 	fn get_due_block(due_date: u64) -> T::BlockNumber {
 		let current_block_number = frame_system::Pallet::<T>::current_block_number();
-		let total_renting_days = Self::calculate_day_renting(due_date);
-		let target_block = current_block_number + (total_renting_days / DAYS).into();
+		let total_renting_days	 = Self::calculate_day_renting(due_date) as u32;
+		log::info!("total_renting_days: {}", total_renting_days);
+		let target_block = current_block_number + (total_renting_days * DAYS).into();
+
 		target_block
 	}
 
