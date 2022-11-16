@@ -12,6 +12,7 @@ pub use nft::NonFungibleToken;
 /// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
 pub mod nft;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
@@ -77,6 +78,7 @@ pub mod pallet {
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
 		Mint(T::AccountId, Vec<u8>),
+		SetUri(Vec<u8>,Vec<u8>),
 		Transfer(T::AccountId, T::AccountId, Vec<u8>),
 		Approve(T::AccountId, T::AccountId, Vec<u8>),
 		ApproveForAll(T::AccountId, T::AccountId),
@@ -150,7 +152,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(who == Self::owner_of(token_id.clone()).unwrap(),Error::<T>::NotOwner);
 			<Self as NonFungibleToken<_>>::set_token_uri(token_id, token_uri)?;
-			Self::deposit_event(Event::SetURI(token_id,token_uri));
+			Self::deposit_event(Event::SetUri(token_id,token_uri));
 			Ok(())
 		}
 	}
