@@ -247,7 +247,7 @@ impl<T: Config> Pallet<T> {
 
 	fn calculate_day_renting(due_date: u64) -> u64 {
 		let part = due_date - T::Timestamp::now().as_secs();
-		part / 24
+		part / 86400
 	}
 
 	/// Parse the json object to Order struct
