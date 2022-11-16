@@ -11,17 +11,7 @@ pub use nft::NonFungibleToken;
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
-
 pub mod nft;
-#[cfg(test)]
-mod mock;
-
-#[cfg(test)]
-mod tests;
-
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
-
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
@@ -224,7 +214,7 @@ impl<T: Config> NonFungibleToken<T::AccountId> for Pallet<T> {
 	}
 
 	fn transfer_custodian(from: T::AccountId, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
-		ensure!(Self::custodian_of(token_id.clone()).unwrap() == from || Self::owner_of(token_id.clone()).unwrap() == from ,Error::<T>::NotCustodian);
+		ensure!(Self::owner_of(token_id.clone()).unwrap() == from || Self::custodian_of(token_id.clone()).unwrap() == from ,Error::<T>::NotCustodian);
 		if to == Self::owner_of_token(token_id.clone()) {
 			CustodianOf::<T>::remove(token_id.clone());
 		} else {
