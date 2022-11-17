@@ -94,7 +94,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		MatchOrder(T::AccountId, T::AccountId, Vec<u8>),
-		CancelOrder(Vec<u8>),
+		CancelOrder(Vec<u8>,T::AccountId),
 		StopRenting(Vec<u8>, T::AccountId),
 		ReturnAsset(T::AccountId, T::AccountId, Vec<u8>),
 	}
@@ -184,7 +184,7 @@ pub mod pallet {
 			});
 
 			Self::transfer_custodian(&lender, &borrower, fulfilled_order.clone());
-			Self::deposit_event(Event::MatchOrder(lender, borrower, token_id));
+			Self::deposit_event(Event::MatchOrder(lender, borrower, hash_order));
 			Ok(())
 		}
 
@@ -195,23 +195,24 @@ pub mod pallet {
 			let order;
 			if is_lender {
 				order = Self::parse_to_order(account, [0u8; 32], &message).unwrap();
-				ensure!(account == order.lender, Error::<T>::NotOwnerOfOrder)
+				ensure!(account == order.lender, Error::<T>::NotOwnerOfOrder);
 			} else {
 				order = Self::parse_to_order([0u8; 32], account, &message).unwrap();
-				ensure!(account == order.borrower, Error::<T>::NotOwnerOfOrder)
+				ensure!(account == order.borrower, Error::<T>::NotOwnerOfOrder);
 			}
 			CancelOrder::<T>::mutate(order.clone().encode(), |cancel_order| {
 				*cancel_order = Some(order.clone());
 			});
-			Self::deposit_event(Event::CancelOrder(order.encode()));
+			Self::deposit_event(Event::CancelOrder(order.encode(), caller));
 			Ok(())
 		}
 
+		/// Borrower stop renting NFT, the fee cannot refund
 		#[pallet::weight(35_678_000)]
 		pub fn stop_renting(origin: OriginFor<T>, token_id: Vec<u8>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			let hash_id = Self::token_rental(token_id).unwrap();
-			let order = Self::rental_info(hash_id).unwrap();
+			let hash_order = Self::token_rental(token_id).unwrap();
+			let order = Self::rental_info(hash_order.clone()).unwrap();
 			let lender: T::AccountId = convert_bytes_to_accountid(order.lender);
 			let borrower: T::AccountId = convert_bytes_to_accountid(order.borrower);
 
@@ -221,6 +222,9 @@ pub mod pallet {
 
 			// transfer to the lender
 			T::TokenNFT::transfer_custodian(borrower, lender, order.token).expect("Cannot transfer custodian");
+
+			// update storage
+			Self::deposit_event(Event::StopRenting(hash_order, caller));
 			Ok(())
 		}
 	}
