@@ -101,9 +101,10 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(33_963_000 + T::DbWeight::get().reads_writes(4, 3))]
-		pub fn mint_to(_origin: OriginFor<T>, to: T::AccountId) -> DispatchResult {
+		pub fn mint_to(_origin: OriginFor<T>, to: T::AccountId, token_uri:Vec<u8>) -> DispatchResult {
 			let token_id = <Self as NonFungibleToken<_>>::mint(to.clone())?;
-			Self::deposit_event(Event::Mint(to, token_id));
+			Self::deposit_event(Event::Mint(to.clone(), token_id.clone()));
+			Self::set_token_uri(to,token_id,token_uri);
 			Ok(())
 		}
 
