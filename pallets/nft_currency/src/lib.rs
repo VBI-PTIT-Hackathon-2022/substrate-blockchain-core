@@ -80,6 +80,7 @@ pub mod pallet {
 		Mint(T::AccountId, Vec<u8>),
 		SetUri(Vec<u8>,Vec<u8>),
 		Transfer(T::AccountId, T::AccountId, Vec<u8>),
+		SetURI(Vec<u8>,Vec<u8>),
 		Approve(T::AccountId, T::AccountId, Vec<u8>),
 		ApproveForAll(T::AccountId, T::AccountId),
 	}
@@ -102,6 +103,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(33_963_000 + T::DbWeight::get().reads_writes(4, 3))]
+
 		pub fn mint_to(_origin: OriginFor<T>, to: T::AccountId, token_uri: Vec<u8>) -> DispatchResult {
 			let token_id = <Self as NonFungibleToken<_>>::mint(to.clone())?;
 			Self::deposit_event(Event::Mint(to.clone(), token_id.clone()));
