@@ -116,12 +116,12 @@ pub mod pallet {
 		NotOwnerOfOrder,
 		NotQualified,
 		TimeNotLongEnough,
+		NotCustodia
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(_n: BlockNumberFor<T>) {
-			log::info!("on_finalize {:?}", _n);
 			if DueBlock::<T>::contains_key(_n) {
 				for hash_id in Self::due_block(_n).into_iter() {
 					let order = Self::rental_info(hash_id.clone()).unwrap();
@@ -129,10 +129,13 @@ pub mod pallet {
 					let borrower: T::AccountId = convert_bytes_to_accountid(order.borrower);
 					// transfer asset back to lender
 					T::TokenNFT::transfer_custodian(borrower.clone(), lender.clone(), order.token.clone()).expect("Cannot transfer custodian");
+
 					RentalInfo::<T>::remove(hash_id.clone());
 					Borrowers::<T>::mutate(borrower.clone(), |orders| {
 						orders.retain(|x| *x != hash_id);
 					});
+					TokenRental::<T>::remove(hash_id.clone());
+
 					Self::deposit_event(Event::ReturnAsset(borrower, lender, order.token));
 				}
 			}
@@ -309,7 +312,6 @@ impl<T: Config> Pallet<T> {
 		ensure!(order_left.due_date >= order_right.due_date, Error::<T>::TimeOver);
 		ensure!(order_left.fee <= order_right.fee, Error::<T>::NotEnoughFee);
 		let total_renting_days = Self::calculate_day_renting(order_right.due_date);
-		log::info!("total blocks: {}", total_renting_days);
 		ensure!(total_renting_days > 1, Error::<T>::TimeNotLongEnough);
 
 		order_right.fee = order_right.fee * total_renting_days;
@@ -319,8 +321,8 @@ impl<T: Config> Pallet<T> {
 
 	fn transfer_custodian(lender: &T::AccountId, borrower: &T::AccountId, order: Order) {
 		if order.paid_type == 0 {}
-		let _ = T::TokenNFT::transfer_custodian(lender.clone(), borrower.clone(), order.token.clone());
-		let _ = T::Currency::transfer(&borrower, &T::TokenNFT::owner_of_token(order.token), order.fee.saturated_into(), ExistenceRequirement::KeepAlive);
+		ensure!(T::TokenNFT::transfer_custodian(lender.clone(), borrower.clone(), order.token.clone()).is_err(),Error:<T>::NotCustodian);
+		let _ = T::Currency::transfer(&borrower, &lender, order.fee.saturated_into(), ExistenceRequirement::KeepAlive).unwrap();
 	}
 
 	fn get_due_block(due_date: u64) -> T::BlockNumber {
