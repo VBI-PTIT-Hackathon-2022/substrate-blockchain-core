@@ -3,7 +3,7 @@
 use codec::Encode;
 use frame_support::{dispatch::{DispatchError, DispatchResult, result::Result}, ensure, traits::{Get, Randomness}};
 use frame_support::{pallet_prelude::{StorageMap, StorageValue}};
-use frame_system::ensure_signed;
+use frame_system::{ensure_signed,RawOrigin};
 pub use sp_std::{convert::Into, vec::Vec};
 
 pub use nft::NonFungibleToken;
@@ -12,6 +12,7 @@ pub use nft::NonFungibleToken;
 /// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
 pub mod nft;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
@@ -77,6 +78,7 @@ pub mod pallet {
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
 		Mint(T::AccountId, Vec<u8>),
+		SetUri(Vec<u8>,Vec<u8>),
 		Transfer(T::AccountId, T::AccountId, Vec<u8>),
 		SetURI(Vec<u8>,Vec<u8>),
 		Approve(T::AccountId, T::AccountId, Vec<u8>),
@@ -101,10 +103,11 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(33_963_000 + T::DbWeight::get().reads_writes(4, 3))]
-		pub fn mint_to(_origin: OriginFor<T>, to: T::AccountId, token_uri:Vec<u8>) -> DispatchResult {
+
+		pub fn mint_to(_origin: OriginFor<T>, to: T::AccountId, token_uri: Vec<u8>) -> DispatchResult {
 			let token_id = <Self as NonFungibleToken<_>>::mint(to.clone())?;
 			Self::deposit_event(Event::Mint(to.clone(), token_id.clone()));
-			Self::set_token_uri(to,token_id,token_uri);
+			Self::set_token_uri(RawOrigin::Signed(to).into(), token_id,token_uri);
 			Ok(())
 		}
 
@@ -152,7 +155,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(who == Self::owner_of(token_id.clone()).unwrap(),Error::<T>::NotOwner);
 			<Self as NonFungibleToken<_>>::set_token_uri(token_id.clone(), token_uri.clone())?;
-			Self::deposit_event(Event::SetURI(token_id,token_uri));
+			Self::deposit_event(Event::SetUri(token_id,token_uri));
 			Ok(())
 		}
 	}
