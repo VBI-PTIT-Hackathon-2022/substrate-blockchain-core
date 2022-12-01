@@ -222,7 +222,6 @@ impl<T: Config> NonFungibleToken<T::AccountId> for Pallet<T> {
 
 	fn transfer_custodian(from: T::AccountId, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
 		ensure!(Self::owner_of(token_id.clone()).unwrap() == from && Self::custodian_of(token_id.clone()).is_none() ,Error::<T>::NotCustodian);
-
 		if to == Self::owner_of_token(token_id.clone()) {
 			CustodianOf::<T>::remove(token_id.clone());
 		} else {
