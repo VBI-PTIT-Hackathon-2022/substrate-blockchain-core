@@ -280,6 +280,23 @@ impl pallet_renting::Config for Runtime {
 	type Currency = Balances;
 }
 
+impl pallet_uniques::Config for Runtime {
+	type Event = Event;
+	type ClassId = [u8;8];
+	type InstanceId = u64;
+	type Currency = Balances;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+	type ClassDeposit = Balances;
+	type InstanceDeposit = Balances;
+	type MetadataDepositBase = Balances;
+	type AttributeDepositBase = Balances;
+	type DepositPerByte = Balances;
+	type StringLimit = u32;
+	type KeyLimit = u32;
+	type ValueLimit = u32;
+	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -298,6 +315,7 @@ construct_runtime!(
 		// Include the custom logic from the pallet-nft_currency in the runtime.
 		NftCurrency: pallet_nft_currency,
 		Renting: pallet_renting,
+		Uniques : pallet_uniques,
 	}
 );
 
