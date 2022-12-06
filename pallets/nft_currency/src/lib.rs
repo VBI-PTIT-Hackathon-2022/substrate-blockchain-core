@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Encode;
-use frame_support::{dispatch::{DispatchError, DispatchResult, result::Result}, ensure, traits::{Get, Randomness}};
+use frame_support::{dispatch::{DispatchError, DispatchResult, result::Result}, ensure, log,traits::{Get, Randomness}};
 use frame_support::{pallet_prelude::{StorageMap, StorageValue}};
 use frame_system::{ensure_signed,RawOrigin};
 pub use sp_std::{convert::Into, vec::Vec};
@@ -95,6 +95,7 @@ pub mod pallet {
 		NoneExist,
 		NotOwnerNorApproved,
 		NotCustodian,
+		InRent,
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -115,6 +116,7 @@ pub mod pallet {
 		pub fn transfer_ownership(origin: OriginFor<T>, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(who == Self::owner_of(token_id.clone()).unwrap(), Error::<T>::NotOwner);
+			ensure!(who == Self::custodian_of_token(token_id.clone()), Error::<T>::InRent);
 			<Self as NonFungibleToken<_>>::transfer_ownership(who.clone(), to.clone(), token_id.clone()).expect("Cannot transfer token");
 			Self::deposit_event(Event::Transfer(who, to, token_id));
 			Ok(())
@@ -124,7 +126,7 @@ pub mod pallet {
 		pub fn safe_transfer_ownership(origin: OriginFor<T>, from: T::AccountId, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let account = (from.clone(), who.clone());
-			ensure!(who == Self::owner_of(token_id.clone()).unwrap() ||
+			ensure!(who == Self::owner_of(token_id.clone()).unwrap() && who == Self::custodian_of(token_id.clone()).unwrap() ||
 				Self::is_approve_for_all(account).unwrap(),
 				Error::<T>::NotOwnerNorApproved);
 
@@ -196,7 +198,6 @@ impl<T: Config> NonFungibleToken<T::AccountId> for Pallet<T> {
 		ListOwned::<T>::mutate(owner.clone(), |list_token| {
 			list_token.push(token_id.clone());
 		});
-
 		TokenApproval::<T>::mutate(token_id.clone(), |approval| {
 			approval.push(owner);
 		});
@@ -220,7 +221,7 @@ impl<T: Config> NonFungibleToken<T::AccountId> for Pallet<T> {
 	}
 
 	fn transfer_custodian(from: T::AccountId, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
-		ensure!(Self::owner_of(token_id.clone()).unwrap() == from || Self::custodian_of(token_id.clone()).unwrap() == from ,Error::<T>::NotCustodian);
+		ensure!(Self::owner_of(token_id.clone()).unwrap() == from && Self::custodian_of(token_id.clone()).is_none() ,Error::<T>::NotCustodian);
 		if to == Self::owner_of_token(token_id.clone()) {
 			CustodianOf::<T>::remove(token_id.clone());
 		} else {

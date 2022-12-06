@@ -116,12 +116,12 @@ pub mod pallet {
 		NotOwnerOfOrder,
 		NotQualified,
 		TimeNotLongEnough,
+		CannotTransferCustodian,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(_n: BlockNumberFor<T>) {
-			log::info!("on_finalize {:?}", _n);
 			if DueBlock::<T>::contains_key(_n) {
 				for hash_id in Self::due_block(_n).into_iter() {
 					let order = Self::rental_info(hash_id.clone()).unwrap();
@@ -129,10 +129,13 @@ pub mod pallet {
 					let borrower: T::AccountId = convert_bytes_to_accountid(order.borrower);
 					// transfer asset back to lender
 					T::TokenNFT::transfer_custodian(borrower.clone(), lender.clone(), order.token.clone()).expect("Cannot transfer custodian");
+
 					RentalInfo::<T>::remove(hash_id.clone());
 					Borrowers::<T>::mutate(borrower.clone(), |orders| {
 						orders.retain(|x| *x != hash_id);
 					});
+					TokenRental::<T>::remove(hash_id.clone());
+
 					Self::deposit_event(Event::ReturnAsset(borrower, lender, order.token));
 				}
 			}
@@ -156,14 +159,14 @@ pub mod pallet {
 			} else {
 				return Err(DispatchError::CannotLookup);
 			}
-			let lender_bytes = account_to_bytes(&lender).unwrap();
-			let borrower_bytes = account_to_bytes(&borrower).unwrap();
-			let order_left = Self::parse_to_order(lender_bytes.clone(), [0u8; 32], &message_left).unwrap();
-			let order_right = Self::parse_to_order(lender_bytes.clone(), borrower_bytes.clone(), &message_right).unwrap();
+			let lender_bytes = account_to_bytes(&lender)?;
+			let borrower_bytes = account_to_bytes(&borrower)?;
+			let order_left = Self::parse_to_order(lender_bytes.clone(), [0u8; 32], &message_left)?;
+			let order_right = Self::parse_to_order(lender_bytes.clone(), borrower_bytes.clone(), &message_right)?;
 			ensure!(!CancelOrder::<T>::contains_key(order_left.clone().encode()) &&
 				!CancelOrder::<T>::contains_key(order_right.clone().encode()),
 				Error::<T>::AlreadyCanceled);
-			let fulfilled_order = Self::match_order(order_left, order_right).unwrap();
+			let fulfilled_order = Self::match_order(order_left, order_right)?;
 
 			let hash_order = fulfilled_order.clone().encode();
 			let token_id = fulfilled_order.clone().token;
@@ -178,12 +181,11 @@ pub mod pallet {
 			});
 
 			let due_block = Self::get_due_block(fulfilled_order.due_date);
-			log::info!("due_block: {:?}", due_block);
 			DueBlock::<T>::mutate(due_block.clone(), |orders| {
 				orders.push(hash_order.clone());
 			});
 
-			Self::transfer_custodian(&lender, &borrower, fulfilled_order.clone());
+			Self::transfer_custodian(&lender, &borrower, fulfilled_order.clone())?;
 			Self::deposit_event(Event::MatchOrder(lender, borrower, hash_order));
 			Ok(())
 		}
@@ -191,13 +193,13 @@ pub mod pallet {
 		#[pallet::weight(35_678_000)]
 		pub fn cancel_offer(origin: OriginFor<T>, message: Vec<u8>, is_lender: bool) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			let account = account_to_bytes(&caller).unwrap();
+			let account = account_to_bytes(&caller)?;
 			let order;
 			if is_lender {
-				order = Self::parse_to_order(account, [0u8; 32], &message).unwrap();
+				order = Self::parse_to_order(account, [0u8; 32], &message)?;
 				ensure!(account == order.lender, Error::<T>::NotOwnerOfOrder);
 			} else {
-				order = Self::parse_to_order([0u8; 32], account, &message).unwrap();
+				order = Self::parse_to_order([0u8; 32], account, &message)?;
 				ensure!(account == order.borrower, Error::<T>::NotOwnerOfOrder);
 			}
 			CancelOrder::<T>::mutate(order.clone().encode(), |cancel_order| {
@@ -296,7 +298,7 @@ impl<T: Config> Pallet<T> {
 				order.due_date = value;
 			} else if k == "paid_type".as_bytes().to_vec() {
 				let value = data.1.to_number().unwrap().integer;
-				ensure!(value>=0 && value <= 2, Error::<T>::TimeOver);
+				ensure!(value <= 2, Error::<T>::TimeOver);
 				order.paid_type = value.saturated_into();
 			}
 		}
@@ -309,7 +311,6 @@ impl<T: Config> Pallet<T> {
 		ensure!(order_left.due_date >= order_right.due_date, Error::<T>::TimeOver);
 		ensure!(order_left.fee <= order_right.fee, Error::<T>::NotEnoughFee);
 		let total_renting_days = Self::calculate_day_renting(order_right.due_date);
-		log::info!("total blocks: {}", total_renting_days);
 		ensure!(total_renting_days > 1, Error::<T>::TimeNotLongEnough);
 
 		order_right.fee = order_right.fee * total_renting_days;
@@ -317,10 +318,10 @@ impl<T: Config> Pallet<T> {
 		Ok(order_right)
 	}
 
-	fn transfer_custodian(lender: &T::AccountId, borrower: &T::AccountId, order: Order) {
-		if order.paid_type == 0 {}
-		let _ = T::TokenNFT::transfer_custodian(lender.clone(), borrower.clone(), order.token.clone());
-		let _ = T::Currency::transfer(&borrower, &T::TokenNFT::owner_of_token(order.token), order.fee.saturated_into(), ExistenceRequirement::KeepAlive);
+	fn transfer_custodian(lender: &T::AccountId, borrower: &T::AccountId, order: Order) -> DispatchResult{
+		ensure!(!T::TokenNFT::transfer_custodian(lender.clone(), borrower.clone(), order.token.clone()).is_err(),Error::<T>::CannotTransferCustodian);
+		let _ = T::Currency::transfer(&borrower, &lender, order.fee.saturated_into(), ExistenceRequirement::KeepAlive).unwrap();
+		Ok(())
 	}
 
 	fn get_due_block(due_date: u64) -> T::BlockNumber {
