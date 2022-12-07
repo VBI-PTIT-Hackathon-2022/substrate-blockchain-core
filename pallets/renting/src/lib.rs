@@ -56,7 +56,7 @@ pub mod pallet {
 	#[pallet::getter(fn borrowers)]
 	// AccountId => List of borrowing with hash id
 	pub(super) type Borrowers<T: Config> =
-	StorageMap<_, Blake2_128Concat, T::AccountId, Vec<Vec<u8>>, ValueQuery>;
+	StorageDoubleMap<_, Blake2_128Concat, T::AccountId, lake2_128Concat, Vec<u8>,Order, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn cancel_order)]
@@ -64,23 +64,23 @@ pub mod pallet {
 	pub(super) type CancelOrder<T: Config> =
 	StorageMap<_, Blake2_128Concat, Vec<u8>, Order, OptionQuery>;
 
-	#[pallet::storage]
-	#[pallet::getter(fn rental_info)]
-	// Hash Id -> Renting Info
-	pub(super) type RentalInfo<T: Config> =
-	StorageMap<_, Blake2_128Concat, Vec<u8>, Order, OptionQuery>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn token_rental)]
-	// TokenId -> Hash info of order
-	pub(super) type TokenRental<T: Config> =
-	StorageMap<_, Blake2_128Concat, Vec<u8>, Vec<u8>, OptionQuery>;
+	// #[pallet::storage]
+	// #[pallet::getter(fn rental_info)]
+	// // Hash Id -> Renting Info
+	// pub(super) type RentalInfo<T: Config> =
+	// StorageMap<_, Blake2_128Concat, Vec<u8>, Order, OptionQuery>;
+	//
+	// #[pallet::storage]
+	// #[pallet::getter(fn token_rental)]
+	// // TokenId -> Hash info of order
+	// pub(super) type TokenRental<T: Config> =
+	// StorageMap<_, Blake2_128Concat, Vec<u8>, Vec<u8>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn due_block)]
 	// Record the block stop the rental
 	pub(super) type DueBlock<T: Config> =
-	StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<Vec<u8>>, ValueQuery>;
+	StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<Order>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn repayment)]
@@ -123,18 +123,13 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_finalize(_n: BlockNumberFor<T>) {
 			if DueBlock::<T>::contains_key(_n) {
-				for hash_id in Self::due_block(_n).into_iter() {
-					let order = Self::rental_info(hash_id.clone()).unwrap();
+				for order in Self::due_block(_n).into_iter() {
 					let lender: T::AccountId = convert_bytes_to_accountid(order.lender);
 					let borrower: T::AccountId = convert_bytes_to_accountid(order.borrower);
 					// transfer asset back to lender
 					T::TokenNFT::transfer_custodian(borrower.clone(), lender.clone(), order.token.clone()).expect("Cannot transfer custodian");
 
-					RentalInfo::<T>::remove(hash_id.clone());
-					Borrowers::<T>::mutate(borrower.clone(), |orders| {
-						orders.retain(|x| *x != hash_id);
-					});
-					TokenRental::<T>::remove(hash_id.clone());
+					Borrowers::<T>::remove(borrower.clone(),order.token);
 
 					Self::deposit_event(Event::ReturnAsset(borrower, lender, order.token));
 				}
@@ -168,21 +163,15 @@ pub mod pallet {
 				Error::<T>::AlreadyCanceled);
 			let fulfilled_order = Self::match_order(order_left, order_right)?;
 
-			let hash_order = fulfilled_order.clone().encode();
 			let token_id = fulfilled_order.clone().token;
-			RentalInfo::<T>::mutate(hash_order.clone(), |order| {
-				*order = Some(fulfilled_order.clone());
-			});
-			Borrowers::<T>::mutate(borrower.clone(), |orders| {
-				orders.push(hash_order.clone());
-			});
-			TokenRental::<T>::mutate(token_id.clone(), |info| {
-				*info = Some(hash_order.clone());
+
+			Borrowers::<T>::mutate(borrower.clone(),token_id.clone(), |orders| {
+				orders.push(fulfilled_order.clone());
 			});
 
 			let due_block = Self::get_due_block(fulfilled_order.due_date);
 			DueBlock::<T>::mutate(due_block.clone(), |orders| {
-				orders.push(hash_order.clone());
+				orders.push(fulfilled_order.clone());
 			});
 
 			Self::transfer_custodian(&lender, &borrower, fulfilled_order.clone())?;
@@ -213,8 +202,7 @@ pub mod pallet {
 		#[pallet::weight(35_678_000)]
 		pub fn stop_renting(origin: OriginFor<T>, token_id: Vec<u8>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			let hash_order = Self::token_rental(token_id).unwrap();
-			let order = Self::rental_info(hash_order.clone()).unwrap();
+			let order = Self::borrowers(caller.clone(), token_id.clone()).unwrap();
 			let lender: T::AccountId = convert_bytes_to_accountid(order.lender);
 			let borrower: T::AccountId = convert_bytes_to_accountid(order.borrower);
 
@@ -310,6 +298,9 @@ impl<T: Config> Pallet<T> {
 		ensure!(order_left.lender == order_right.lender, Error::<T>::NotMatchLender);
 		ensure!(order_left.due_date >= order_right.due_date, Error::<T>::TimeOver);
 		ensure!(order_left.fee <= order_right.fee, Error::<T>::NotEnoughFee);
+		let order = order_right.clone();
+		ensure!(Self::check_borrowers(order.lender, order.token, order.due_date), Error::<T>::NotQualified);
+
 		let total_renting_days = Self::calculate_day_renting(order_right.due_date);
 		ensure!(total_renting_days > 1, Error::<T>::TimeNotLongEnough);
 
@@ -331,6 +322,18 @@ impl<T: Config> Pallet<T> {
 		let target_block = current_block_number + (total_renting_days * DAYS).into();
 
 		target_block
+	}
+
+	fn check_borrowers(user: T::AccountId, token_id:Vec<u8>, check_date: u64) -> bool{
+		if !Self::borrowers(user.clone()).is_none() {
+			let order = Self::borrowers(user, token_id).unwrap();
+			return if order.due_date >= check_date {
+				true
+			} else {
+				false
+			}
+		}
+		return true
 	}
 
 	fn get_repayment_block(order_type: u8, due_date:u64) {

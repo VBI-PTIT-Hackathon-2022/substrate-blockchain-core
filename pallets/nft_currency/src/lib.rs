@@ -1,5 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-
+pub mod nft;
 use codec::Encode;
 use frame_support::{dispatch::{DispatchError, DispatchResult, result::Result}, ensure, log,traits::{Get, Randomness}};
 use frame_support::{pallet_prelude::{StorageMap, StorageValue}};
@@ -11,7 +11,7 @@ pub use nft::NonFungibleToken;
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
-pub mod nft;
+
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -220,8 +220,11 @@ impl<T: Config> NonFungibleToken<T::AccountId> for Pallet<T> {
 		Ok(())
 	}
 
+	// The owner lets NFT for rent
+	// The borrower can let NFT for rent if the due_date is available
 	fn transfer_custodian(from: T::AccountId, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
-		ensure!(Self::owner_of(token_id.clone()).unwrap() == from && Self::custodian_of(token_id.clone()).is_none() ,Error::<T>::NotCustodian);
+		ensure!(Self::owner_of(token_id.clone()).unwrap() == from && Self::custodian_of(token_id.clone()).is_none() ||
+			!Self::custodian_of(token_id.clone()).is_none() && Self::custodian_of(token_id.clone()).unwrap() == from,Error::<T>::NotCustodian);
 		if to == Self::owner_of_token(token_id.clone()) {
 			CustodianOf::<T>::remove(token_id.clone());
 		} else {
