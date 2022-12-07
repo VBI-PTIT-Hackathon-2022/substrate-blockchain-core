@@ -25,7 +25,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		// type Administrator : EnsureOrigin<Self::Origin>;
 		type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
 	}
@@ -103,7 +103,7 @@ pub mod pallet {
 	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(33_963_000 + T::DbWeight::get().reads_writes(4, 3))]
+		#[pallet::weight(33_963_000 + T::DbWeight::get().reads_writes(4, 3).ref_time())]
 
 		pub fn mint_to(_origin: OriginFor<T>, to: T::AccountId, token_uri: Vec<u8>) -> DispatchResult {
 			let token_id = <Self as NonFungibleToken<_>>::mint(to.clone())?;
@@ -112,7 +112,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(35_678_000 + T::DbWeight::get().reads_writes(3, 3))]
+		#[pallet::weight(35_678_000 + T::DbWeight::get().reads_writes(3, 3).ref_time())]
 		pub fn transfer_ownership(origin: OriginFor<T>, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(who == Self::owner_of(token_id.clone()).unwrap(), Error::<T>::NotOwner);
@@ -122,7 +122,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(54_275_000 + T::DbWeight::get().reads_writes(4, 3))]
+		#[pallet::weight(54_275_000 + T::DbWeight::get().reads_writes(4, 3).ref_time())]
 		pub fn safe_transfer_ownership(origin: OriginFor<T>, from: T::AccountId, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let account = (from.clone(), who.clone());
@@ -135,7 +135,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(38_030_000 + T::DbWeight::get().reads_writes(2, 1))]
+		#[pallet::weight(38_030_000 + T::DbWeight::get().reads_writes(2, 1).ref_time())]
 		pub fn approve(origin: OriginFor<T>, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(who == Self::owner_of(token_id.clone()).unwrap()|| who == Self::custodian_of(token_id.clone()).unwrap(),Error::<T>::NotOwner);
@@ -144,7 +144,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(26_615_000 + T::DbWeight::get().reads_writes(1, 1))]
+		#[pallet::weight(26_615_000 + T::DbWeight::get().reads_writes(1, 1).ref_time())]
 		pub fn approve_for_all(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			<Self as NonFungibleToken<_>>::set_approve_for_all(who.clone(), account.clone())?;
@@ -152,7 +152,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(17_653_000 + T::DbWeight::get().reads_writes(2, 1))]
+		#[pallet::weight(17_653_000 + T::DbWeight::get().reads_writes(2, 1).ref_time())]
 		pub fn set_token_uri(origin: OriginFor<T>, token_id: Vec<u8>, token_uri: Vec<u8>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(who == Self::owner_of(token_id.clone()).unwrap(),Error::<T>::NotOwner);
