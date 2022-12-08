@@ -20,7 +20,6 @@ pub fn account_to_bytes<AccountId>(account: &AccountId) -> Result<[u8; 32], Disp
 
 pub fn hex_string_to_vec(str:String) -> Vec<u8> {
 	let hex_string =str.replace("0x", "");
-	log::info!("Hex string {:?}", hex_string);
 	let split_string = hex_string.as_bytes()
 		.chunks(2)
 		.map(str::from_utf8)
@@ -30,12 +29,10 @@ pub fn hex_string_to_vec(str:String) -> Vec<u8> {
 	for part in split_string.into_iter() {
 		bytes.push(hex_to_deci(part));
 	}
-	log::info!("After hex string {:?}", bytes);
 	bytes
 }
 
 fn hex_to_deci(str:&str) -> u8 {
-	log::info!("part string {:?}", str);
 	let mut deci: u8 = 0;
 	let mut i: u32 = 0;
 	let hex_vec: Vec<char> = str.trim_end().chars().rev().collect();

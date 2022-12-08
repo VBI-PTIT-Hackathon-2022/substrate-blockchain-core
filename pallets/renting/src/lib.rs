@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{dispatch::{DispatchError, DispatchResult, result::Result}, ensure,log, pallet_prelude::*, traits::{Currency, Randomness}};
+use frame_support::{dispatch::{DispatchError, DispatchResult, result::Result}, ensure, log, pallet_prelude::*, traits::{Currency, Randomness}};
 use frame_support::traits::{ExistenceRequirement, UnixTime};
 use frame_system::{ensure_signed, pallet_prelude::*};
 use lite_json::json_parser::parse_json;
@@ -54,27 +54,15 @@ pub mod pallet {
 	// https://docs.substrate.io/v3/runtime/storage
 	#[pallet::storage]
 	#[pallet::getter(fn borrowers)]
-	// AccountId => List of borrowing with hash id
+	// AccountId, token Id => Order detail
 	pub(super) type Borrowers<T: Config> =
-	StorageDoubleMap<_, Blake2_128Concat, T::AccountId, lake2_128Concat, Vec<u8>,Order, ValueQuery>;
+	StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Blake2_128Concat, Vec<u8>,Order, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn cancel_order)]
 	// Hashing order => Detail of canceled order
 	pub(super) type CancelOrder<T: Config> =
 	StorageMap<_, Blake2_128Concat, Vec<u8>, Order, OptionQuery>;
-
-	// #[pallet::storage]
-	// #[pallet::getter(fn rental_info)]
-	// // Hash Id -> Renting Info
-	// pub(super) type RentalInfo<T: Config> =
-	// StorageMap<_, Blake2_128Concat, Vec<u8>, Order, OptionQuery>;
-	//
-	// #[pallet::storage]
-	// #[pallet::getter(fn token_rental)]
-	// // TokenId -> Hash info of order
-	// pub(super) type TokenRental<T: Config> =
-	// StorageMap<_, Blake2_128Concat, Vec<u8>, Vec<u8>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn due_block)]
@@ -84,9 +72,9 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn repayment)]
-	// Record the block stop the rental
+	// Record the block to pay for the rental
 	pub(super) type Repayment<T: Config> =
-	StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<Vec<u8>>, ValueQuery>;
+	StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<Order>, ValueQuery>;
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
@@ -129,7 +117,7 @@ pub mod pallet {
 					// transfer asset back to lender
 					T::TokenNFT::transfer_custodian(borrower.clone(), lender.clone(), order.token.clone()).expect("Cannot transfer custodian");
 
-					Borrowers::<T>::remove(borrower.clone(),order.token);
+					Borrowers::<T>::remove(borrower.clone(),order.token.clone());
 
 					Self::deposit_event(Event::ReturnAsset(borrower, lender, order.token));
 				}
@@ -161,21 +149,21 @@ pub mod pallet {
 			ensure!(!CancelOrder::<T>::contains_key(order_left.clone().encode()) &&
 				!CancelOrder::<T>::contains_key(order_right.clone().encode()),
 				Error::<T>::AlreadyCanceled);
-			let fulfilled_order = Self::match_order(order_left, order_right)?;
+			let fulfilled_order = Self::match_order(lender.clone(),order_left, order_right)?;
 
-			let token_id = fulfilled_order.clone().token;
+			let token_id = fulfilled_order.token.clone();
 
-			Borrowers::<T>::mutate(borrower.clone(),token_id.clone(), |orders| {
-				orders.push(fulfilled_order.clone());
+			Borrowers::<T>::mutate(borrower.clone(),token_id.clone(), |order_detail| {
+				*order_detail = fulfilled_order.clone();
 			});
 
-			let due_block = Self::get_due_block(fulfilled_order.due_date);
+			let due_block = Self::get_due_block(fulfilled_order.clone());
 			DueBlock::<T>::mutate(due_block.clone(), |orders| {
 				orders.push(fulfilled_order.clone());
 			});
 
 			Self::transfer_custodian(&lender, &borrower, fulfilled_order.clone())?;
-			Self::deposit_event(Event::MatchOrder(lender, borrower, hash_order));
+			Self::deposit_event(Event::MatchOrder(lender, borrower, token_id));
 			Ok(())
 		}
 
@@ -202,7 +190,7 @@ pub mod pallet {
 		#[pallet::weight(35_678_000)]
 		pub fn stop_renting(origin: OriginFor<T>, token_id: Vec<u8>) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			let order = Self::borrowers(caller.clone(), token_id.clone()).unwrap();
+			let order = Self::borrowers(caller.clone(), token_id.clone());
 			let lender: T::AccountId = convert_bytes_to_accountid(order.lender);
 			let borrower: T::AccountId = convert_bytes_to_accountid(order.borrower);
 
@@ -214,7 +202,7 @@ pub mod pallet {
 			T::TokenNFT::transfer_custodian(borrower, lender, order.token).expect("Cannot transfer custodian");
 
 			// update storage
-			Self::deposit_event(Event::StopRenting(hash_order, caller));
+			Self::deposit_event(Event::StopRenting(token_id, caller));
 			Ok(())
 		}
 	}
@@ -237,11 +225,6 @@ impl<T: Config> Pallet<T> {
 			true => Ok(()),
 			false => Err(Error::<T>::SignatureVerifyError2)?,
 		}
-	}
-
-	fn calculate_day_renting(due_date: u64) -> u64 {
-		let part = due_date - T::Timestamp::now().as_secs();
-		part / 86400
 	}
 
 	/// Parse the json object to Order struct
@@ -289,22 +272,30 @@ impl<T: Config> Pallet<T> {
 				ensure!(value <= 2, Error::<T>::TimeOver);
 				order.paid_type = value.saturated_into();
 			}
+
 		}
 		Ok(order)
 	}
 
-	fn match_order(order_left: Order, mut order_right: Order) -> Result<Order, DispatchError> {
+	fn match_order(lender:T::AccountId,order_left: Order, mut order_right: Order) -> Result<Order, DispatchError> {
 		ensure!(order_left.token == order_right.token, Error::<T>::NotMatchToken);
 		ensure!(order_left.lender == order_right.lender, Error::<T>::NotMatchLender);
 		ensure!(order_left.due_date >= order_right.due_date, Error::<T>::TimeOver);
 		ensure!(order_left.fee <= order_right.fee, Error::<T>::NotEnoughFee);
+
 		let order = order_right.clone();
-		ensure!(Self::check_borrowers(order.lender, order.token, order.due_date), Error::<T>::NotQualified);
+		ensure!(Self::check_borrowers(lender, order.token, order.due_date), Error::<T>::NotQualified);
 
 		let total_renting_days = Self::calculate_day_renting(order_right.due_date);
 		ensure!(total_renting_days > 1, Error::<T>::TimeNotLongEnough);
 
-		order_right.fee = order_right.fee * total_renting_days;
+		if order_right.paid_type == 0 {
+			order_right.fee = order_right.fee * total_renting_days;
+		} else if order_right.paid_type == 1 {
+			order_right.fee = order_right.fee;
+		} else if order_right.paid_type == 2 {
+			order_right.fee = order_right.fee * 7;
+		}
 
 		Ok(order_right)
 	}
@@ -315,18 +306,47 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn get_due_block(due_date: u64) -> T::BlockNumber {
-		let current_block_number = frame_system::Pallet::<T>::current_block_number();
-		let total_renting_days	 = Self::calculate_day_renting(due_date) as u32;
+	fn calculate_day_renting(due_date: u64) -> u64 {
+		let part = due_date - T::Timestamp::now().as_secs();
+		part / 86400
+	}
+
+	fn get_due_block(order: Order) -> T::BlockNumber {
+		let mut current_block_number = frame_system::Pallet::<T>::current_block_number();
+		let total_renting_days	 = Self::calculate_day_renting(order.due_date) as u32;
 		log::info!("total_renting_days: {}", total_renting_days);
 		let target_block = current_block_number + (total_renting_days * DAYS).into();
 
+		if order.paid_type == 1 {
+			loop {
+				current_block_number += DAYS.into();
+				Repayment::<T>::mutate(current_block_number.clone(),|orders|{
+					orders.push(order.clone())
+				});
+
+				if current_block_number >= target_block {
+					break;
+				}
+			}
+		} else if order.paid_type == 2 {
+			loop {
+				current_block_number += WEEKS.into();
+				Repayment::<T>::mutate(current_block_number.clone(),|orders|{
+					orders.push(order.clone())
+				});
+
+				if current_block_number >= target_block {
+					break;
+				}
+			}
+		}
 		target_block
 	}
 
 	fn check_borrowers(user: T::AccountId, token_id:Vec<u8>, check_date: u64) -> bool{
-		if !Self::borrowers(user.clone()).is_none() {
-			let order = Self::borrowers(user, token_id).unwrap();
+		if !(Self::borrowers(user.clone(),token_id.clone()).lender == [0u8; 32]) {
+			let order = Self::borrowers(user, token_id);
+			log::info!("Check date: {:?} {:?} ",order.due_date,check_date );
 			return if order.due_date >= check_date {
 				true
 			} else {
@@ -336,9 +356,6 @@ impl<T: Config> Pallet<T> {
 		return true
 	}
 
-	fn get_repayment_block(order_type: u8, due_date:u64) {
-
-	}
 }
 
 
