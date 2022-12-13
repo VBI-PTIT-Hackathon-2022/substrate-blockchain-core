@@ -122,6 +122,7 @@ pub mod pallet {
 		AlreadyCanceled,
 		NotOwnerOfOrder,
 		NotQualified,
+		NotPaidType,
 		TimeNotLongEnough,
 		CannotTransferCustodian,
 	}
@@ -368,7 +369,7 @@ impl<T: Config> Pallet<T> {
 				order.due_date = value;
 			} else if k == "paid_type".as_bytes().to_vec() {
 				let value = data.1.to_number().unwrap().integer;
-				ensure!(value <= 2, Error::<T>::TimeOver);
+				ensure!(value <= 2, Error::<T>::NotPaidType);
 				order.paid_type = value.saturated_into();
 			}
 		}
@@ -442,7 +443,7 @@ impl<T: Config> Pallet<T> {
 				Repayment::<T>::mutate(current_block_number.clone(), |orders| {
 					orders.push(order.clone())
 				});
-
+				log::info!("block {:?}",current_block_number);
 				if current_block_number >= target_block {
 					break;
 				}
@@ -453,7 +454,7 @@ impl<T: Config> Pallet<T> {
 				Repayment::<T>::mutate(current_block_number.clone(), |orders| {
 					orders.push(order.clone())
 				});
-
+				log::info!("block {:?}",current_block_number);
 				if current_block_number >= target_block {
 					break;
 				}
