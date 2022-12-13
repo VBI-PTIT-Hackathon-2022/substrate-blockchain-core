@@ -1,7 +1,7 @@
 use codec::{DecodeLength, Error};
-use frame_support::{pallet_prelude::*};
+use frame_support::pallet_prelude::*;
 use frame_support::storage::StorageDecodeLength;
-use sp_std::{vec::Vec,vec};
+use sp_std::{vec, vec::Vec};
 
 #[derive(Clone, Encode, Decode, PartialEq, TypeInfo, Debug)]
 #[scale_info(skip_type_params(T))]
@@ -17,7 +17,7 @@ pub struct Order {
 
 impl Order {
 	pub fn new() -> Self {
-		Self{
+		Self {
 			lender: [0u8; 32],
 			borrower: [0u8; 32],
 			fee: 0,

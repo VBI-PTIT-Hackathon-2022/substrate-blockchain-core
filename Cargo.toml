@@ -1,8 +1,7 @@
 [workspace]
 members = [
     "node",
-	"pallets/nft_currency",
-	"pallets/renting",
+	"pallets/*",
     "runtime",
 ]
 [profile.release]
