@@ -36,7 +36,7 @@ mod benchmarking;
 pub const MILLISECS_PER_BLOCK: u32 = 6000;
 pub const MINUTES: u32 = 60000 / (MILLISECS_PER_BLOCK);
 pub const HOURS: u32 = MINUTES * 60;
-pub const DAYS: u32 = HOURS * 24;
+pub const DAYS: u32 = MINUTES * 3;
 pub const WEEKS: u32 = DAYS * 7;
 pub const MONTHS: u32 = WEEKS * 4;
 
