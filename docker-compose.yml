@@ -2,16 +2,16 @@ version: "3.2"
 
 services:
   dev:
-    container_name: node-nft_currency
+    container_name: brock
     image: paritytech/ci-linux:production
-    working_dir: /var/www/node-nft_currency
+    working_dir: /var/www/brock
     ports:
       - "9944:9944"
     environment:
-      - CARGO_HOME=/var/www/node-nft_currency/.cargo
+      - CARGO_HOME=/var/www/brock/.cargo
     volumes:
-      - .:/var/www/node-nft_currency
+      - .:/var/www/brock
       - type: bind
         source: ./.local
         target: /root/.local
-    command: bash -c "cargo build --release && ./target/release/node-nft_currency --dev --ws-external"
+    command: bash -c "cargo build --release && ./target/release/brock --dev --ws-external"

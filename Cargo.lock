@@ -3683,8 +3683,12 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
+ "pallet-assets",
+ "pallet-assets-chain-extension",
  "pallet-aura",
  "pallet-balances",
+ "pallet-contracts",
+ "pallet-contracts-primitives",
  "pallet-grandpa",
  "pallet-nft-currency",
  "pallet-randomness-collective-flip",
@@ -3811,6 +3815,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "obce"
+version = "0.1.0"
+source = "git+https://github.com/Supercolony-net/obce?branch=polkadot-v0.9.32#163c456e79d2ed084b29e47637f0ec9fd9ac4376"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "obce-macro",
+ "pallet-contracts",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "obce-codegen"
+version = "0.1.0"
+source = "git+https://github.com/Supercolony-net/obce?branch=polkadot-v0.9.32#163c456e79d2ed084b29e47637f0ec9fd9ac4376"
+dependencies = [
+ "blake2",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "obce-macro"
+version = "0.1.0"
+source = "git+https://github.com/Supercolony-net/obce?branch=polkadot-v0.9.32#163c456e79d2ed084b29e47637f0ec9fd9ac4376"
+dependencies = [
+ "obce-codegen",
+ "proc-macro2",
+ "syn",
+ "synstructure",
+]
+
+[[package]]
 name = "object"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3851,6 +3893,31 @@ name = "os_str_bytes"
 version = "6.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ff7415e9ae3fff1225851df9e0d9e4e5479f947619774677a63572e55e80eff"
+
+[[package]]
+name = "pallet-assets"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.32#5ea6d95309aaccfa399c5f72e5a14a4b7c6c4ca1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-assets-chain-extension"
+version = "0.1.1"
+source = "git+https://github.com/Supercolony-net/pallet-assets-chain-extension?branch=polkadot-v0.9.32#f5364d6e2f859f22c1d47c3257fe4f65443f81fd"
+dependencies = [
+ "obce",
+ "pallet-assets",
+ "parity-scale-codec",
+ "scale-info",
+]
 
 [[package]]
 name = "pallet-aura"
@@ -3896,6 +3963,56 @@ dependencies = [
  "scale-info",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "pallet-contracts"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.32#5ea6d95309aaccfa399c5f72e5a14a4b7c6c4ca1"
+dependencies = [
+ "bitflags",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "pallet-contracts-primitives",
+ "pallet-contracts-proc-macro",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "scale-info",
+ "serde",
+ "smallvec",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-sandbox",
+ "sp-std",
+ "wasm-instrument",
+ "wasmi-validation",
+]
+
+[[package]]
+name = "pallet-contracts-primitives"
+version = "6.0.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.32#5ea6d95309aaccfa399c5f72e5a14a4b7c6c4ca1"
+dependencies = [
+ "bitflags",
+ "parity-scale-codec",
+ "sp-runtime",
+ "sp-std",
+ "sp-weights",
+]
+
+[[package]]
+name = "pallet-contracts-proc-macro"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.32#5ea6d95309aaccfa399c5f72e5a14a4b7c6c4ca1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

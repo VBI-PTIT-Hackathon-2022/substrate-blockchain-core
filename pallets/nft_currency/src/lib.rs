@@ -1,9 +1,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+pub mod nft;
 
 use codec::Encode;
-use frame_support::{dispatch::{DispatchError, DispatchResult, result::Result}, ensure, log,traits::{Get, Randomness}};
-use frame_support::{pallet_prelude::{StorageMap, StorageValue}};
-use frame_system::{ensure_signed,RawOrigin};
+use frame_support::pallet_prelude::{StorageMap, StorageValue};
+use frame_support::{
+	dispatch::{result::Result, DispatchError, DispatchResult},
+	ensure, log,
+	traits::{Get, Randomness},
+};
+use frame_system::{ensure_signed, RawOrigin};
 pub use sp_std::{convert::Into, vec::Vec};
 
 pub use nft::NonFungibleToken;
@@ -11,7 +18,6 @@ pub use nft::NonFungibleToken;
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
-pub mod nft;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -38,7 +44,8 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn token_uri)]
 	// uri of the nft
-	pub(super) type TokenUri<T: Config> = StorageMap<_, Blake2_128Concat, Vec<u8>, Vec<u8>, OptionQuery>;
+	pub(super) type TokenUri<T: Config> =
+		StorageMap<_, Blake2_128Concat, Vec<u8>, Vec<u8>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn total_tokens)]
@@ -48,27 +55,32 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn owner_of)]
 	// Mapping Token Id => Account Id: to check who is the owner of the token
-	pub(super) type OwnerOf<T: Config> = StorageMap<_, Blake2_128Concat, Vec<u8>, T::AccountId, OptionQuery>;
+	pub(super) type OwnerOf<T: Config> =
+		StorageMap<_, Blake2_128Concat, Vec<u8>, T::AccountId, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn custodian_of)]
 	// Mapping Token Id => Account Id: to check who is the owner of the token
-	pub(super) type CustodianOf<T: Config> = StorageMap<_, Blake2_128Concat, Vec<u8>, T::AccountId, OptionQuery>;
+	pub(super) type CustodianOf<T: Config> =
+		StorageMap<_, Blake2_128Concat, Vec<u8>, T::AccountId, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn list_owned)]
 	// To check all the token that the account owns
-	pub(super) type ListOwned<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<Vec<u8>>, ValueQuery>;
+	pub(super) type ListOwned<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, Vec<Vec<u8>>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn is_approve_for_all)]
 	// To check all the token that the account owns;
 	// (from,to) => bool
-	pub(super) type Approval<T: Config> = StorageMap<_, Blake2_128Concat, (T::AccountId, T::AccountId), bool, OptionQuery>;
+	pub(super) type Approval<T: Config> =
+		StorageMap<_, Blake2_128Concat, (T::AccountId, T::AccountId), bool, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn token_approval)]
-	pub(super) type TokenApproval<T: Config> = StorageMap<_, Blake2_128Concat, Vec<u8>, Vec<T::AccountId>, ValueQuery>;
+	pub(super) type TokenApproval<T: Config> =
+		StorageMap<_, Blake2_128Concat, Vec<u8>, Vec<T::AccountId>, ValueQuery>;
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
@@ -78,9 +90,9 @@ pub mod pallet {
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
 		Mint(T::AccountId, Vec<u8>),
-		SetUri(Vec<u8>,Vec<u8>),
+		SetUri(Vec<u8>, Vec<u8>),
 		Transfer(T::AccountId, T::AccountId, Vec<u8>),
-		SetURI(Vec<u8>,Vec<u8>),
+		SetURI(Vec<u8>, Vec<u8>),
 		Approve(T::AccountId, T::AccountId, Vec<u8>),
 		ApproveForAll(T::AccountId, T::AccountId),
 	}
@@ -104,41 +116,73 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(33_963_000 + T::DbWeight::get().reads_writes(4, 3).ref_time())]
-
-		pub fn mint_to(_origin: OriginFor<T>, to: T::AccountId, token_uri: Vec<u8>) -> DispatchResult {
+		pub fn mint_to(
+			_origin: OriginFor<T>,
+			to: T::AccountId,
+			token_uri: Vec<u8>,
+		) -> DispatchResult {
 			let token_id = <Self as NonFungibleToken<_>>::mint(to.clone())?;
 			Self::deposit_event(Event::Mint(to.clone(), token_id.clone()));
-			Self::set_token_uri(RawOrigin::Signed(to).into(), token_id,token_uri);
+			Self::set_token_uri(RawOrigin::Signed(to).into(), token_id, token_uri);
 			Ok(())
 		}
 
 		#[pallet::weight(35_678_000 + T::DbWeight::get().reads_writes(3, 3).ref_time())]
-		pub fn transfer_ownership(origin: OriginFor<T>, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
+		pub fn transfer_ownership(
+			origin: OriginFor<T>,
+			to: T::AccountId,
+			token_id: Vec<u8>,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(who == Self::owner_of(token_id.clone()).unwrap(), Error::<T>::NotOwner);
 			ensure!(who == Self::custodian_of_token(token_id.clone()), Error::<T>::InRent);
-			<Self as NonFungibleToken<_>>::transfer_ownership(who.clone(), to.clone(), token_id.clone()).expect("Cannot transfer token");
+			<Self as NonFungibleToken<_>>::transfer_ownership(
+				who.clone(),
+				to.clone(),
+				token_id.clone(),
+			)
+			.expect("Cannot transfer token");
 			Self::deposit_event(Event::Transfer(who, to, token_id));
 			Ok(())
 		}
 
 		#[pallet::weight(54_275_000 + T::DbWeight::get().reads_writes(4, 3).ref_time())]
-		pub fn safe_transfer_ownership(origin: OriginFor<T>, from: T::AccountId, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
+		pub fn safe_transfer_ownership(
+			origin: OriginFor<T>,
+			from: T::AccountId,
+			to: T::AccountId,
+			token_id: Vec<u8>,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let account = (from.clone(), who.clone());
-			ensure!(who == Self::owner_of(token_id.clone()).unwrap() && who == Self::custodian_of(token_id.clone()).unwrap() ||
-				Self::is_approve_for_all(account).unwrap(),
-				Error::<T>::NotOwnerNorApproved);
+			ensure!(
+				who == Self::owner_of(token_id.clone()).unwrap()
+					&& who == Self::custodian_of(token_id.clone()).unwrap()
+					|| Self::is_approve_for_all(account).unwrap(),
+				Error::<T>::NotOwnerNorApproved
+			);
 
-			<Self as NonFungibleToken<_>>::transfer_ownership(from.clone(), to.clone(), token_id.clone())?;
+			<Self as NonFungibleToken<_>>::transfer_ownership(
+				from.clone(),
+				to.clone(),
+				token_id.clone(),
+			)?;
 			Self::deposit_event(Event::Transfer(from, to, token_id));
 			Ok(())
 		}
 
 		#[pallet::weight(38_030_000 + T::DbWeight::get().reads_writes(2, 1).ref_time())]
-		pub fn approve(origin: OriginFor<T>, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
+		pub fn approve(
+			origin: OriginFor<T>,
+			to: T::AccountId,
+			token_id: Vec<u8>,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(who == Self::owner_of(token_id.clone()).unwrap()|| who == Self::custodian_of(token_id.clone()).unwrap(),Error::<T>::NotOwner);
+			ensure!(
+				who == Self::owner_of(token_id.clone()).unwrap()
+					|| who == Self::custodian_of(token_id.clone()).unwrap(),
+				Error::<T>::NotOwner
+			);
 			<Self as NonFungibleToken<_>>::approve(who.clone(), to.clone(), token_id.clone())?;
 			Self::deposit_event(Event::Approve(who, to, token_id));
 			Ok(())
@@ -153,11 +197,15 @@ pub mod pallet {
 		}
 
 		#[pallet::weight(17_653_000 + T::DbWeight::get().reads_writes(2, 1).ref_time())]
-		pub fn set_token_uri(origin: OriginFor<T>, token_id: Vec<u8>, token_uri: Vec<u8>) -> DispatchResult {
+		pub fn set_token_uri(
+			origin: OriginFor<T>,
+			token_id: Vec<u8>,
+			token_uri: Vec<u8>,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(who == Self::owner_of(token_id.clone()).unwrap(),Error::<T>::NotOwner);
+			ensure!(who == Self::owner_of(token_id.clone()).unwrap(), Error::<T>::NotOwner);
 			<Self as NonFungibleToken<_>>::set_token_uri(token_id.clone(), token_uri.clone())?;
-			Self::deposit_event(Event::SetUri(token_id,token_uri));
+			Self::deposit_event(Event::SetUri(token_id, token_uri));
 			Ok(())
 		}
 	}
@@ -172,7 +220,6 @@ impl<T: Config> Pallet<T> {
 		rand.encode()
 	}
 }
-
 
 impl<T: Config> NonFungibleToken<T::AccountId> for Pallet<T> {
 	fn token_uri(token_id: Vec<u8>) -> Vec<u8> {
@@ -199,13 +246,19 @@ impl<T: Config> NonFungibleToken<T::AccountId> for Pallet<T> {
 			list_token.push(token_id.clone());
 		});
 		TokenApproval::<T>::mutate(token_id.clone(), |approval| {
-			approval.push(owner);
+			approval.push(owner.clone());
 		});
-
+		CustodianOf::<T>::mutate(token_id.clone(), |account| {
+			*account = Some(owner.clone());
+		});
 		Ok(token_id)
 	}
 
-	fn transfer_ownership(from: T::AccountId, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
+	fn transfer_ownership(
+		from: T::AccountId,
+		to: T::AccountId,
+		token_id: Vec<u8>,
+	) -> DispatchResult {
 		OwnerOf::<T>::mutate(token_id.clone(), |owner| *owner = Some(to.clone()));
 		ListOwned::<T>::mutate(to, |list_token| {
 			list_token.push(token_id.clone());
@@ -216,12 +269,25 @@ impl<T: Config> NonFungibleToken<T::AccountId> for Pallet<T> {
 				return Ok(());
 			}
 			Err(())
-		}).expect("Error in ListOwned");
+		})
+		.expect("Error in ListOwned");
 		Ok(())
 	}
 
-	fn transfer_custodian(from: T::AccountId, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
-		ensure!(Self::owner_of(token_id.clone()).unwrap() == from && Self::custodian_of(token_id.clone()).is_none() ,Error::<T>::NotCustodian);
+	// The owner lets NFT for rent
+	// The borrower can let NFT for rent if the due_date is available
+	fn transfer_custodian(
+		from: T::AccountId,
+		to: T::AccountId,
+		token_id: Vec<u8>,
+	) -> DispatchResult {
+		ensure!(
+			Self::owner_of(token_id.clone()).unwrap() == from
+				&& Self::custodian_of(token_id.clone()).is_none()
+				|| !Self::custodian_of(token_id.clone()).is_none()
+					&& Self::custodian_of(token_id.clone()).unwrap() == from,
+			Error::<T>::NotCustodian
+		);
 		if to == Self::owner_of_token(token_id.clone()) {
 			CustodianOf::<T>::remove(token_id.clone());
 		} else {
@@ -236,7 +302,7 @@ impl<T: Config> NonFungibleToken<T::AccountId> for Pallet<T> {
 
 	fn approve(from: T::AccountId, to: T::AccountId, token_id: Vec<u8>) -> DispatchResult {
 		let owner = OwnerOf::<T>::get(token_id.clone()).unwrap();
-		ensure!(from==owner, "Not Owner nor approved");
+		ensure!(from == owner, "Not Owner nor approved");
 		TokenApproval::<T>::mutate(token_id.clone(), |list_account| {
 			list_account.push(to);
 		});
