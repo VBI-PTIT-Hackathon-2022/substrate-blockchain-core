@@ -21,7 +21,7 @@ frame-support = { default-features = false, version = "4.0.0-dev", git = "https:
 frame-system = { default-features = false, version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.32" }
 frame-benchmarking = { default-features = false, version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.32", optional = true }
 sp-std = { default-features = false, version = "4.0.0", git="https://github.com/paritytech/substrate.git" ,branch = "polkadot-v0.9.32" }
-pallet-nft-currency = {default-features=false,version="4.0.0-dev", path="../nft_currency"}
+pallet-collectible = {default-features=false,version="4.0.0-dev", path= "../collectible" }
 sp-runtime = { default-features = false, version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.32" }
 sp-core = { default-features = false, version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.32" }
 getrandom = { version = "0.2", features = ["js"] }
@@ -42,7 +42,7 @@ std = [
 	"frame-benchmarking/std",
 	"sp-std/std",
 	"sp-runtime/std",
-	"pallet-nft-currency/std",
+	"pallet-collectible/std",
 	"lite-json/std",
 	'rustc-hex/std',
 	'bs58/std',

@@ -196,6 +196,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Set token URI
 		#[pallet::weight(17_653_000 + T::DbWeight::get().reads_writes(2, 1).ref_time())]
 		pub fn set_token_uri(
 			origin: OriginFor<T>,

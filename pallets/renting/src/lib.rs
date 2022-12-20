@@ -23,7 +23,7 @@ pub use sp_std::{convert::Into, str};
 use convert::*;
 pub use order::Order;
 pub use pallet::*;
-use pallet_nft_currency::NonFungibleToken;
+use pallet_collectible::NonFungibleToken;
 mod convert;
 mod order;
 

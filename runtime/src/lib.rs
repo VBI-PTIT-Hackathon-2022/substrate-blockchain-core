@@ -48,7 +48,7 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 /// Import the nft_currency pallet.
-pub use pallet_nft_currency;
+pub use pallet_collectible;
 pub use pallet_renting;
 
 /// An index to a block.
@@ -288,7 +288,7 @@ impl pallet_sudo::Config for Runtime {
 }
 
 /// Configure the pallet-nft_currency in pallets/nft_currency.
-impl pallet_nft_currency::Config for Runtime {
+impl pallet_collectible::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Randomness = RandomnessCollectiveFlip;
 }
@@ -296,7 +296,7 @@ impl pallet_nft_currency::Config for Runtime {
 impl pallet_renting::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Randomness = RandomnessCollectiveFlip;
-	type TokenNFT = NftCurrency;
+	type TokenNFT = Collectible;
 	type Signature = sp_core::ecdsa::Signature;
 	type PublicKey = sp_core::ecdsa::Public;
 	type Timestamp = pallet_timestamp::Pallet<Runtime>;
@@ -424,7 +424,7 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-nft_currency in the runtime.
-		NftCurrency: pallet_nft_currency,
+		Collectible: pallet_collectible,
 		Renting: pallet_renting,
 		Uniques : pallet_uniques::{Pallet, Call, Storage, Event<T>},
 		Contracts: pallet_contracts,
@@ -474,7 +474,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
-		[pallet_nft_currency, NftCurrency]
+		[pallet_collectible, Collectible]
 	);
 }
 
