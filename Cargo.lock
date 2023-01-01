@@ -13,10 +13,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "Unqiues"
-version = "0.1.0"
-
-[[package]]
 name = "addr2line"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4142,6 +4138,26 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-timestamp",
+]
+
+[[package]]
+name = "pallet-trading"
+version = "4.0.0-dev"
+dependencies = [
+ "bs58",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "getrandom 0.2.7",
+ "lite-json",
+ "pallet-collectible",
+ "parity-scale-codec",
+ "rustc-hex",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

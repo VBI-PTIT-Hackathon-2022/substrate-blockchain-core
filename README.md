@@ -228,7 +228,7 @@ by appending your own. A few useful ones are as follow.
 ./scripts/docker_run.sh ./target/release/node-nft_currency --dev --ws-external
 
 # Purge the local dev chain
-./scripts/docker_run.sh ./target/release/node-nft_currency purge-chain --dev
+./scripts/docker_run.sh ./target/release/node-template purge-chain --dev
 
 # Check whether the code is compilable
 ./scripts/docker_run.sh cargo check

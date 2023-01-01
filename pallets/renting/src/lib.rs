@@ -226,7 +226,12 @@ pub mod pallet {
 					&& !CancelOrder::<T>::contains_key(order_right.clone().encode()),
 				Error::<T>::AlreadyCanceled
 			);
-			let fulfilled_order = Self::match_order(lender.clone(), order_left, order_right)?;
+			if (caller == lender){
+				let fulfilled_order = Self::match_order(lender.clone(), true, order_left, order_right)?;
+			} else {
+				let fulfilled_order = Self::match_order(lender.clone(),false, order_left, order_right)?;
+			}
+
 
 			let token_id = fulfilled_order.token.clone();
 
@@ -378,13 +383,14 @@ impl<T: Config> Pallet<T> {
 
 	fn match_order(
 		lender: T::AccountId,
+		is_lender : bool,
 		order_left: Order,
 		mut order_right: Order,
 	) -> Result<Order, DispatchError> {
 		ensure!(order_left.token == order_right.token, Error::<T>::NotMatchToken);
 		ensure!(order_left.lender == order_right.lender, Error::<T>::NotMatchLender);
 		ensure!(order_left.due_date >= order_right.due_date, Error::<T>::TimeOver);
-		ensure!(order_left.fee <= order_right.fee, Error::<T>::NotEnoughFee);
+		ensure!(is_lender || order_left.fee <= order_right.fee, Error::<T>::NotEnoughFee);
 
 		let order = order_right.clone();
 		ensure!(
