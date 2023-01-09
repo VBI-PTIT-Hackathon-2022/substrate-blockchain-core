@@ -9,9 +9,9 @@ pub struct Order {
 	//pub(crate) id:u64,
 	pub(crate) seller: [u8; 32],
 	pub(crate) buyer: [u8; 32],
-	pub(crate) fee: u64,
+	pub(crate) price: u64,
 	pub(crate) token: Vec<u8>,
-	pub(crate) trading_type: u8, // at once :0, per day: 1, per week:2
+	pub(crate) trading_type: u8, // buy now 0, offer from buyer 1, offer from seller 2
 }
 
 impl Order {
@@ -19,7 +19,7 @@ impl Order {
 		Self {
 			seller: [0u8; 32],
 			buyer: [0u8; 32],
-			fee: 0,
+			price: 0,
 			token: vec![],
 			trading_type: 0,
 		}

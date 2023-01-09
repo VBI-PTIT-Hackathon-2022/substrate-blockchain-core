@@ -63,7 +63,7 @@ pub mod pallet {
 
 
 	#[pallet::storage]
-	#[pallet::getter(fn cancel_order)]
+	#[pallet::getter(fn cancel_orders)]
 	// Hashing order => Detail of canceled order
 	pub(super) type CancelOrder<T: Config> =
 		StorageMap<_, Blake2_128Concat, Vec<u8>, Order, OptionQuery>;
@@ -74,8 +74,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		MatchOrder(T::AccountId, T::AccountId, Vec<u8>),
-		CancelOrder(Vec<u8>, T::AccountId),
+		MatchOrder(T::AccountId, T::AccountId, Vec<u8>,u64),
+		CancelOrder(Vec<u8>, T::AccountId, bool),
 	}
 
 	// Errors inform users that something went wrong.
@@ -84,18 +84,13 @@ pub mod pallet {
 		NotMatchToken,
 		NotMatchSeller,
 		NotMatchBuyer,
-		TimeOver,
 		NotOwner,
-		NotEnoughFee,
-		NoneExist,
+		NotEnoughPrice,
 		SignatureVerifyError1,
 		SignatureVerifyError2,
-		NotCaller,
 		AlreadyCanceled,
 		NotOwnerOfOrder,
-		NotQualified,
 		NotPaidType,
-		TimeNotLongEnough,
 		CannotTransferOwnership,
 	}
 
@@ -106,7 +101,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(35_678_000)]
-		pub fn match_order(
+		pub fn create_trading(
 			origin: OriginFor<T>,
 			seller: T::AccountId,
 			buyer: T::AccountId,
@@ -134,19 +129,20 @@ pub mod pallet {
 					&& !CancelOrder::<T>::contains_key(order_right.clone().encode()),
 				Error::<T>::AlreadyCanceled
 			);
-			let fulfilled_order = Self::match_trading(seller.clone(), order_left, order_right)?;
-
-			let token_id = fulfilled_order.token.clone();
-
-
+			let mut fulfilled_order;
+			if caller == seller {
+				fulfilled_order = Self::match_trading( true, order_left, order_right)?;
+			} else {
+				fulfilled_order = Self::match_trading( false, order_left, order_right)?;
+			}
 
 			Self::transfer_ownership(&seller, &buyer, fulfilled_order.clone())?;
-			Self::deposit_event(Event::MatchOrder(seller, buyer, token_id));
+			Self::deposit_event(Event::MatchOrder(seller, buyer, fulfilled_order.token.clone(), fulfilled_order.price));
 			Ok(())
 		}
 
 		#[pallet::weight(35_678_000)]
-		pub fn cancel_offer(
+		pub fn cancel_order(
 			origin: OriginFor<T>,
 			message: Vec<u8>,
 			is_seller: bool,
@@ -164,7 +160,7 @@ pub mod pallet {
 			CancelOrder::<T>::mutate(order.clone().encode(), |cancel_order| {
 				*cancel_order = Some(order.clone());
 			});
-			Self::deposit_event(Event::CancelOrder(order.encode(), caller));
+			Self::deposit_event(Event::CancelOrder(message, caller, is_seller));
 			Ok(())
 		}
 
@@ -206,7 +202,7 @@ impl<T: Config> Pallet<T> {
 		let mut order = Order {
 			seller: [0u8; 32],
 			buyer: [0u8; 32],
-			fee: 0,
+			price: 0,
 			token: vec![],
 			trading_type: 0,
 		};
@@ -223,7 +219,7 @@ impl<T: Config> Pallet<T> {
 				let account: T::AccountId = convert_bytes_to_accountid(seller.clone());
 				ensure!(hex_account == account, Error::<T>::NotMatchSeller);
 				order.seller = seller;
-			} else if k == "buyer".as_bytes().to_vec() {
+			} else if k == "buyer".as_bytes().to_vec() && buyer != [0u8;32] {
 				let value =
 					data.1.to_string().unwrap().iter().map(|c| *c as u8).collect::<Vec<_>>();
 				let hex_account: T::AccountId =
@@ -231,9 +227,9 @@ impl<T: Config> Pallet<T> {
 				let account: T::AccountId = convert_bytes_to_accountid(buyer.clone());
 				ensure!(hex_account == account, Error::<T>::NotMatchBuyer);
 				order.buyer = buyer;
-			} else if k == "fee".as_bytes().to_vec() {
+			} else if k == "price".as_bytes().to_vec() {
 				let value = data.1.to_number().unwrap().integer;
-				order.fee = value;
+				order.price = value;
 			} else if k == "token".as_bytes().to_vec() {
 				let value = String::from_utf8(
 					data.1.to_string().unwrap().iter().map(|c| *c as u8).collect::<Vec<_>>(),
@@ -243,7 +239,7 @@ impl<T: Config> Pallet<T> {
 				order.token = token;
 			} else if k == "trading_type".as_bytes().to_vec() {
 				let value = data.1.to_number().unwrap().integer;
-				ensure!(value <= 2, Error::<T>::NotPaidType);
+				ensure!(value < 2, Error::<T>::NotPaidType);
 				order.trading_type = value.saturated_into();
 			}
 		}
@@ -251,13 +247,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn match_trading(
-		seller: T::AccountId,
+		is_seller:bool,
 		order_left: Order,
 		order_right: Order,
 	) -> Result<Order, DispatchError> {
 		ensure!(order_left.token == order_right.token, Error::<T>::NotMatchToken);
 		ensure!(order_left.seller == order_right.seller, Error::<T>::NotMatchSeller);
-		ensure!(order_left.fee <= order_right.fee, Error::<T>::NotEnoughFee);
+		ensure!(is_seller || order_left.price <= order_right.price, Error::<T>::NotEnoughPrice);
 
 		Ok(order_right)
 	}
@@ -275,7 +271,7 @@ impl<T: Config> Pallet<T> {
 		let _ = T::Currency::transfer(
 			&buyer,
 			&seller,
-			order.fee.saturated_into(),
+			order.price.saturated_into(),
 			ExistenceRequirement::KeepAlive,
 		)
 		.unwrap();

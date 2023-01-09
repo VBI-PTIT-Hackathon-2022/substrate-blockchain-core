@@ -58,6 +58,7 @@ hex-literal = { version = "0.3.4", optional = true }
 # Local Dependencies
 pallet-collectible = { version = "4.0.0-dev", default-features = false, path = "../pallets/collectible" }
 pallet-renting = { version = "4.0.0-dev", default-features = false, path ="../pallets/renting"}
+pallet-trading = { version = "4.0.0-dev", default-features = false, path ="../pallets/trading"}
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.32" }
@@ -82,6 +83,7 @@ std = [
 	"pallet-sudo/std",
 	"pallet-collectible/std",
 	"pallet-renting/std",
+	"pallet-trading/std",
 	"pallet-timestamp/std",
 	"pallet-uniques/std",
 	"pallet-contracts/std",
@@ -112,6 +114,7 @@ runtime-benchmarks = [
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-collectible/runtime-benchmarks",
 	"pallet-renting/runtime-benchmarks",
+	"pallet-trading/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -127,6 +130,7 @@ try-runtime = [
 	"pallet-sudo/try-runtime",
 	"pallet-collectible/try-runtime",
 	"pallet-renting/try-runtime",
+	"pallet-trading/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 ]

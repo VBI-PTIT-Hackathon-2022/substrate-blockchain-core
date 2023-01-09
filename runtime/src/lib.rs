@@ -50,6 +50,7 @@ pub use sp_runtime::{Perbill, Permill};
 /// Import the nft_currency pallet.
 pub use pallet_collectible;
 pub use pallet_renting;
+pub use pallet_trading;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -302,6 +303,17 @@ impl pallet_renting::Config for Runtime {
 	type Timestamp = pallet_timestamp::Pallet<Runtime>;
 	type Currency = Balances;
 }
+
+impl pallet_trading::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Randomness = RandomnessCollectiveFlip;
+	type TokenNFT = Collectible;
+	type Signature = sp_core::ecdsa::Signature;
+	type PublicKey = sp_core::ecdsa::Public;
+	type Timestamp = pallet_timestamp::Pallet<Runtime>;
+	type Currency = Balances;
+}
+
 parameter_types! {
 	pub const CollectionDeposit: Balance = 10 * CENTS;
 	pub const ItemDeposit: Balance = DOLLARS;
@@ -426,6 +438,7 @@ construct_runtime!(
 		// Include the custom logic from the pallet-nft_currency in the runtime.
 		Collectible: pallet_collectible,
 		Renting: pallet_renting,
+		Trading: pallet_trading,
 		Uniques : pallet_uniques::{Pallet, Call, Storage, Event<T>},
 		Contracts: pallet_contracts,
 		Assets: pallet_assets,

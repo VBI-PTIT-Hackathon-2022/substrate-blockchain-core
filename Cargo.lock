@@ -3695,6 +3695,7 @@ dependencies = [
  "pallet-renting",
  "pallet-sudo",
  "pallet-timestamp",
+ "pallet-trading",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-uniques",

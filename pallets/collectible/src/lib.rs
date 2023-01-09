@@ -12,11 +12,8 @@ use frame_support::{
 };
 use frame_system::{ensure_signed, RawOrigin};
 pub use sp_std::{convert::Into, vec::Vec};
-
 pub use nft::NonFungibleToken;
-/// Edit this file to define custom logic or remove it if it is not needed.
-/// Learn more about FRAME and the core library of Substrate FRAME pallets:
-/// <https://docs.substrate.io/v3/runtime/frame>
+
 pub use pallet::*;
 
 #[frame_support::pallet]

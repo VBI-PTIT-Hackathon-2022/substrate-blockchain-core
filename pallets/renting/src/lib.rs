@@ -77,7 +77,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn cancel_order)]
+	#[pallet::getter(fn cancel_orders)]
 	// Hashing order => Detail of canceled order
 	pub(super) type CancelOrder<T: Config> =
 		StorageMap<_, Blake2_128Concat, Vec<u8>, Order, OptionQuery>;
@@ -100,7 +100,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		MatchOrder(T::AccountId, T::AccountId, Vec<u8>),
-		CancelOrder(Vec<u8>, T::AccountId),
+		CancelOrder(Vec<u8>, T::AccountId, bool),
 		StopRenting(Vec<u8>, T::AccountId),
 		ReturnAsset(T::AccountId, T::AccountId, Vec<u8>),
 		RepaymentRental(T::AccountId, T::AccountId, Vec<u8>),
@@ -226,10 +226,11 @@ pub mod pallet {
 					&& !CancelOrder::<T>::contains_key(order_right.clone().encode()),
 				Error::<T>::AlreadyCanceled
 			);
-			if (caller == lender){
-				let fulfilled_order = Self::match_order(lender.clone(), true, order_left, order_right)?;
+			let mut fulfilled_order;
+			if caller == lender {
+				fulfilled_order = Self::match_order(lender.clone(), true, order_left, order_right)?;
 			} else {
-				let fulfilled_order = Self::match_order(lender.clone(),false, order_left, order_right)?;
+				fulfilled_order = Self::match_order(lender.clone(),false, order_left, order_right)?;
 			}
 
 
@@ -250,7 +251,7 @@ pub mod pallet {
 		}
 
 		#[pallet::weight(35_678_000)]
-		pub fn cancel_offer(
+		pub fn cancel_order(
 			origin: OriginFor<T>,
 			message: Vec<u8>,
 			is_lender: bool,
@@ -268,7 +269,7 @@ pub mod pallet {
 			CancelOrder::<T>::mutate(order.clone().encode(), |cancel_order| {
 				*cancel_order = Some(order.clone());
 			});
-			Self::deposit_event(Event::CancelOrder(order.encode(), caller));
+			Self::deposit_event(Event::CancelOrder(message, caller,is_lender));
 			Ok(())
 		}
 
@@ -350,7 +351,7 @@ impl<T: Config> Pallet<T> {
 				let account: T::AccountId = convert_bytes_to_accountid(lender.clone());
 				ensure!(hex_account == account, Error::<T>::NotMatchLender);
 				order.lender = lender;
-			} else if k == "borrower".as_bytes().to_vec() {
+			} else if k == "borrower".as_bytes().to_vec() && borrower != [0u8;32] {
 				let value =
 					data.1.to_string().unwrap().iter().map(|c| *c as u8).collect::<Vec<_>>();
 				let hex_account: T::AccountId =
