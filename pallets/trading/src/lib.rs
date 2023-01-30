@@ -217,6 +217,7 @@ impl<T: Config> Pallet<T> {
 				let hex_account: T::AccountId =
 					convert_string_to_accountid(&String::from_utf8(value.clone()).unwrap());
 				let account: T::AccountId = convert_bytes_to_accountid(seller.clone());
+				log::info!("Seller: {:?} {:?}",hex_account, account);
 				ensure!(hex_account == account, Error::<T>::NotMatchSeller);
 				order.seller = seller;
 			} else if k == "buyer".as_bytes().to_vec() && buyer != [0u8;32] {
@@ -225,6 +226,7 @@ impl<T: Config> Pallet<T> {
 				let hex_account: T::AccountId =
 					convert_string_to_accountid(&String::from_utf8(value.clone()).unwrap());
 				let account: T::AccountId = convert_bytes_to_accountid(buyer.clone());
+				log::info!("Buyer: {:?} {:?}",hex_account, account);
 				ensure!(hex_account == account, Error::<T>::NotMatchBuyer);
 				order.buyer = buyer;
 			} else if k == "price".as_bytes().to_vec() {

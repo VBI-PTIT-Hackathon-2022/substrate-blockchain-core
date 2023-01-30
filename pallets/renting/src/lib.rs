@@ -284,7 +284,7 @@ pub mod pallet {
 			// check the order to return token
 			ensure!(caller == borrower.clone(), Error::<T>::NotMatchBorrower);
 			ensure!(
-				caller == T::TokenNFT::owner_of_token(order.token.clone()),
+				caller == T::TokenNFT::custodian_of_token(order.token.clone()),
 				Error::<T>::NotOwner
 			);
 
